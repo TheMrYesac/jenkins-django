@@ -1,7 +1,7 @@
 pipeline{
   agent any
   environment{
-    VENV = 'venv'
+    IMAGE_NAME = 'themryesac/jenkins-django'
   }
   stages{
     stage('Checkout'){
@@ -9,29 +9,22 @@ pipeline{
         git branch: 'main', url: 'https://github.com/TheMrYesac/jenkins-django'
       }
     }
-    stage('Login to ECR'){
-      steps{
-        withAWS(region: 'us-east-2', credentials: 'aws'){
-          powershell '''
-          $password = aws ecr get-login-password --region us-east-2
-          docker login --username AWS --password $password 520320208152.dkr.ecr.us-east-2.amazonaws.com
-          '''
-        }
-      }
-    }
     stage('Build the docker image'){
       steps{
         powershell '''
-        docker build -t jenkins-django:django .
-        docker tag jenkins-django:django 520320208152.dkr.ecr.us-east-2.amazonaws.com/jenkins-django:django
+        docker build -t ${IMAGE_NAME}:latest .
         '''
       }
     }
-    stage('Push image to ECR'){
+    stage('Push to DockerHub'){
       steps{
+        withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
         powershell '''
-        docker push 520320208152.dkr.ecr.us-east-2.amazonaws.com/jenkins-django:django
-        '''
+          echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+          docker push ${IMAGE_NAME}:latest
+          docker logout
+          '''
+        }
       }
     }
   }
