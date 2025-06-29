@@ -4,21 +4,34 @@ pipeline{
     VENV = 'venv'
   }
   stages{
-    stage('Checkout Out'){
+    stage('Checkout'){
       steps{
         git branch: 'main', url: 'https://github.com/TheMrYesac/jenkins-django'
       }
     }
-    stage('Set up VENV'){
+    stage('Login to ECR'){
       steps{
-        bat 'python -m venv %VENV%'
-        bat '%VENV%\\Scripts\\python -m pip install --upgrade pip'
-        bat '%VENV%\\Scripts\\pip install -r requirements.txt'
+        withAWS(region: 'us-east-2', credentials: 'aws'){
+          powershell '''
+          $password = aws ecr get-login-password --region us-east-2
+          docker login --username AWS --password $password 520320208152.dkr.ecr.us-east-2.amazonaws.com
+          '''
+        }
       }
     }
-    stage('Run the tests'){
+    stage('Build the docker image'){
       steps{
-        bat '%VENV%\\Scripts\\python manage.py test'
+        powershell '''
+        docker build -t jenkins-django:django .
+        docker tag jenkins-django:django 520320208152.dkr.ecr.us-east-2.amazonaws.com/jenkins-django:django
+        '''
+      }
+    }
+    stage('Push image to ECR'){
+      steps{
+        powershell '''
+        docker push 520320208152.dkr.ecr.us-east-2.amazonaws.com/jenkins-django:django
+        '''
       }
     }
   }
