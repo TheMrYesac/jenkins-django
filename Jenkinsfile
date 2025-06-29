@@ -1,7 +1,7 @@
 pipeline{
   agent any
   environment{
-    IMAGE_NAME = 'themryesac/jenkins-django'
+    VENV = 'venv'
   }
   stages{
     stage('Checkout'){
@@ -9,21 +9,16 @@ pipeline{
         git branch: 'main', url: 'https://github.com/TheMrYesac/jenkins-django'
       }
     }
-    stage('Build the docker image'){
+    stage('Set Up VENV'){
       steps{
-        powershell """
-        docker build -t ${IMAGE_NAME}:latest .
-        """
+        bat 'python -m venv %VENV%'
+        bat '%VENV%\\Scripts\\python -m pip install --upgrade pip'
+        bat '%VENV%\\Scripts\\pup install -r requirements.txt'
       }
     }
-    stage('Push to DockerHub'){
+    stage('Run tests'){
       steps{
-        withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-        powershell """
-          echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-          docker push ${IMAGE_NAME}:latest
-          docker logout
-          """
+        bat '%VENV%\\Scripts\\python manage.py test'
         }
       }
     }
